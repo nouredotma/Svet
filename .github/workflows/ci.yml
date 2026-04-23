@@ -12,13 +12,13 @@ jobs:
       postgres:
         image: postgres:16-alpine
         env:
-          POSTGRES_DB: svet
-          POSTGRES_USER: svet
-          POSTGRES_PASSWORD: svet
+          POSTGRES_DB: dexter
+          POSTGRES_USER: dexter
+          POSTGRES_PASSWORD: dexter
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U svet -d svet"
+          --health-cmd "pg_isready -U dexter -d dexter"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
@@ -45,7 +45,7 @@ jobs:
 
       - name: Run Alembic migrations
         env:
-          DATABASE_URL: postgresql+asyncpg://svet:svet@localhost:5432/svet
+          DATABASE_URL: postgresql+asyncpg://dexter:dexter@localhost:5432/dexter
         run: alembic upgrade head
 
       - name: Run tests
@@ -68,4 +68,4 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build docker image
-        run: docker build -f docker/Dockerfile -t svet-ci:latest .
+        run: docker build -f docker/Dockerfile -t dexter-ci:latest .

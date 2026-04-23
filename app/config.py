@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     database_url: str = Field(..., alias="DATABASE_URL")
     redis_url: str = Field(..., alias="REDIS_URL")
     qdrant_url: str = Field(..., alias="QDRANT_URL")
-    qdrant_collection_name: str = Field("svet_memory", alias="QDRANT_COLLECTION_NAME")
+    qdrant_collection_name: str = Field("dexter_memory", alias="QDRANT_COLLECTION_NAME")
 
     llm_api_key: str | None = Field(None, alias="LLM_API_KEY")
     llm_model: str = Field("gemini-2.5-flash", alias="LLM_MODEL")
@@ -35,7 +35,7 @@ class Settings(BaseSettings):
 
     serpapi_key: str | None = Field(None, alias="SERPAPI_KEY")
 
-    agent_files_root: str = Field("/tmp/svet_agent_files", alias="AGENT_FILES_ROOT")
+    agent_files_root: str = Field("/tmp/dexter_agent_files", alias="AGENT_FILES_ROOT")
 
     smtp_host: str | None = Field(None, alias="SMTP_HOST")
     smtp_port: int = Field(587, alias="SMTP_PORT")

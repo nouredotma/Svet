@@ -61,7 +61,7 @@ async def run(
     memory_block = "\n".join(memories) if memories else "(no relevant memory)"
 
     system_prompt = (
-        "You are Svet's autonomous agent. Use tools when they materially improve correctness. "
+        "You are Dexter, the user's personal autonomous agent. Use tools when they materially improve correctness. "
         "If you can answer directly with high confidence, respond with plain text only.\n\n"
         f"Memory context:\n{memory_block}"
     )

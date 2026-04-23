@@ -1,10 +1,10 @@
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/128d647a-da2d-4a53-a7b1-a88af5cd2d12" alt="Svet Logo" width="200">
+  <img src="https://github.com/user-attachments/assets/128d647a-da2d-4a53-a7b1-a88af5cd2d12" alt="Dexter Logo" width="200">
 </p>
 
-# Svet
+# Dexter
 
-Personal local AI agent backend built with FastAPI, PostgreSQL, Redis, Taskiq, and Qdrant.
+Personal local AI agent built with FastAPI, PostgreSQL, Redis, Taskiq, and Qdrant.
 
 ![Python](https://img.shields.io/badge/python-3.12+-blue.svg)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115-green.svg)
@@ -18,7 +18,7 @@ Personal local AI agent backend built with FastAPI, PostgreSQL, Redis, Taskiq, a
 
 ```bash
 git clone <your-fork-url>
-cd Svet
+cd Dexter
 copy .env.example .env   # PowerShell / Windows
 # edit .env and fill API keys / secrets
 
@@ -53,7 +53,7 @@ This project is currently configured for **personal local use**:
 
 ### LLM configuration
 
-- Svet uses a single OpenAI-compatible LLM provider configured through env values.
+- Dexter uses a single OpenAI-compatible LLM provider configured through env values.
 - Default setup is **Gemini 2.5 Flash** with:
   - `LLM_API_KEY`
   - `LLM_MODEL=gemini-2.5-flash`
@@ -80,11 +80,10 @@ python -m pytest
 app/
   main.py                 # FastAPI entrypoint + lifespan (Taskiq broker hooks)
   config.py               # Pydantic settings
-  dependencies.py         # Shared DI helpers
   api/                    # HTTP routes + auth/rate-limit middleware
   db/                     # SQLAlchemy models + Alembic migrations
   agent/                  # LLM client, memory, orchestrator, tools
   workers/                # Taskiq broker + agent worker task
 tests/                    # Pytest suite
-docker/                   # Production-oriented Dockerfile
+docker/                   # Dockerfile for local dev
 ```

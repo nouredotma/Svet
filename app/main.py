@@ -75,9 +75,9 @@ async def lifespan(app: FastAPI):
                 session.add(
                     User(
                         id=local_id,
-                        email="local@svet",
+                        email="local@dexter",
                         hashed_password=hash_password("local"),
-                        full_name="Local User",
+                        full_name="Dexter",
                         is_active=True,
                         is_admin=True,
                         llm_provider="gemini",
@@ -110,7 +110,7 @@ def create_app() -> FastAPI:
 
         sentry_sdk.init(dsn=settings.sentry_dsn, environment=settings.environment)
 
-    app = FastAPI(title="Svet", lifespan=lifespan)
+    app = FastAPI(title="Dexter", lifespan=lifespan)
 
     configured_origins = [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
     if settings.environment == "dev" and settings.cors_origins == "*":

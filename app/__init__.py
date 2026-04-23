@@ -1,1 +1,1 @@
-"""Svet application package."""
+"""Dexter application package."""
