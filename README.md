@@ -4,7 +4,7 @@
 
 # Svet
 
-AI agent orchestration API built with FastAPI, PostgreSQL, Redis, Taskiq, and Qdrant.
+Personal local AI agent backend built with FastAPI, PostgreSQL, Redis, Taskiq, and Qdrant.
 
 ![Python](https://img.shields.io/badge/python-3.12+-blue.svg)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115-green.svg)
@@ -27,22 +27,22 @@ docker compose up --build
 
 The API listens on `http://localhost:8000`.
 
+## Local mode (no auth)
+
+This project is currently configured for **personal local use**:
+
+- **No authentication** (no accounts, no API keys).
+- Intended to run on your machine.
+- If you deploy it later, you should re-add auth or restrict access.
+
 ## API overview
 
 | Area | Endpoint | Notes |
 |------|----------|-------|
 | Health | `GET /health` | Public |
-| Register | `POST /auth/register` | Public |
-| Login | `POST /auth/token` | Public |
-| Refresh | `POST /auth/refresh` | Refresh token body |
-| API keys | `POST /auth/api-keys`, `DELETE /auth/api-keys/{key_id}` | Returned secret shown once |
-| Logout | `POST /auth/logout`, `POST /auth/logout-all` | Refresh token revocation |
-| Profile | `GET/PATCH /users/me` | JWT/API key |
-| Memory | `GET/DELETE /users/me/memory` | Qdrant-backed episodic memory |
-| Usage | `GET /users/me/usage` | Paginated usage logs |
-| Tasks | `POST /tasks`, `GET /tasks`, `GET /tasks/{id}`, `DELETE /tasks/{id}`, `GET /tasks/{id}/logs` | Authenticated + rate limited |
-| WebSocket | `WS /ws/tasks/{task_id}?token=<jwt>` | Live task updates |
-| Admin | `GET /admin/stats`, `GET /admin/users`, `DELETE /admin/users/{id}` | Admin-only |
+| Tasks | `POST /tasks`, `GET /tasks`, `GET /tasks/{id}`, `DELETE /tasks/{id}`, `GET /tasks/{id}/logs` | Background execution via worker |
+| WebSocket | `WS /ws/tasks/{task_id}` | Live task updates (optional) |
+| Memory | `GET /memory/`, `DELETE /memory/` | Qdrant-backed episodic memory |
 
 ## How the agent works
 
@@ -72,14 +72,7 @@ python -m pytest
 
 1. Create `app/agent/tools/<name>.py` with an `async def your_tool(... ) -> str`.
 2. Register it in `app/agent/tools/__init__.py` (`TOOLS_REGISTRY` + `get_tools_schema()` JSON schema).
-3. Redeploy/restart API + worker processes.
-
-## Production runbook
-
-- TLS: terminate HTTPS at Nginx; issue/renew certs with Certbot (`certbot --nginx`), then reload Nginx.
-- Backups: run scheduled `pg_dump` to object storage (S3/B2) and keep at least 7-14 daily snapshots.
-- CORS: configure `CORS_ORIGINS` in `.env` (comma-separated in prod).
-- Security: keep `SECRET_KEY` and provider keys only in env/secrets, never in source.
+3. Restart API + worker processes.
 
 ## Project structure
 

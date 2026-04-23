@@ -1,7 +1,6 @@
 import enum
 import uuid
 from datetime import datetime
-from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import (
@@ -11,7 +10,6 @@ from sqlalchemy import (
     Enum,
     ForeignKey,
     Integer,
-    Numeric,
     String,
     Text,
     Uuid,
@@ -51,15 +49,7 @@ class User(Base):
     )
 
     tasks: Mapped[list["Task"]] = relationship(back_populates="user", cascade="all, delete-orphan")
-    api_keys: Mapped[list["ApiKey"]] = relationship(
-        back_populates="user", cascade="all, delete-orphan"
-    )
-    usage_logs: Mapped[list["UsageLog"]] = relationship(
-        back_populates="user", cascade="all, delete-orphan"
-    )
-    refresh_tokens: Mapped[list["RefreshToken"]] = relationship(
-        back_populates="user", cascade="all, delete-orphan"
-    )
+    # Personal-local mode: keep only tasks relationship.
 
 
 class Task(Base):
@@ -88,61 +78,3 @@ class Task(Base):
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     user: Mapped["User"] = relationship(back_populates="tasks")
-    usage_logs: Mapped[list["UsageLog"]] = relationship(back_populates="task")
-
-
-class ApiKey(Base):
-    __tablename__ = "api_keys"
-
-    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
-    )
-    key_hash: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
-    name: Mapped[str] = mapped_column(String(128), nullable=False)
-    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
-
-    user: Mapped["User"] = relationship(back_populates="api_keys")
-
-
-class UsageLog(Base):
-    __tablename__ = "usage_logs"
-
-    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
-    )
-    task_id: Mapped[uuid.UUID | None] = mapped_column(
-        Uuid(as_uuid=True), ForeignKey("tasks.id", ondelete="SET NULL"), nullable=True, index=True
-    )
-    tokens_input: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    tokens_output: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    cost_usd: Mapped[Decimal] = mapped_column(Numeric(12, 6), default=Decimal("0"), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
-
-    user: Mapped["User"] = relationship(back_populates="usage_logs")
-    task: Mapped["Task | None"] = relationship(back_populates="usage_logs")
-
-
-class RefreshToken(Base):
-    __tablename__ = "refresh_tokens"
-
-    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
-    )
-    token_hash: Mapped[str] = mapped_column(String(128), nullable=False, unique=True, index=True)
-    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
-
-    user: Mapped["User"] = relationship(back_populates="refresh_tokens")

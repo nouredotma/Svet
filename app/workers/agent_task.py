@@ -1,14 +1,13 @@
 import asyncio
 import uuid
 from datetime import UTC, datetime
-from decimal import Decimal
 
 from loguru import logger
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agent.orchestrator import run as run_orchestrator
-from app.db.models import Task, TaskStatus, UsageLog, User
+from app.db.models import Task, TaskStatus, User
 from app.db.session import AsyncSessionLocal
 from app.workers.broker import broker
 
@@ -44,10 +43,6 @@ async def _mark_failed(session: AsyncSession, task_id: str, error: str) -> None:
     await session.commit()
 
 
-def _estimate_cost(tokens: int) -> Decimal:
-    return Decimal(str(round(float(tokens) * 0.000002, 6)))
-
-
 async def _run_once(task_id: str) -> None:
     tid = uuid.UUID(task_id)
 
@@ -62,7 +57,6 @@ async def _run_once(task_id: str) -> None:
         if user is None:
             raise RuntimeError("User not found for task")
 
-        llm_provider = task.llm_provider or user.llm_provider
         prompt = task.prompt
         user_id = str(task.user_id)
         attachments = task.attachments
@@ -75,7 +69,7 @@ async def _run_once(task_id: str) -> None:
         prompt=prompt,
         user_id=user_id,
         task_id=task_id,
-        llm_provider=llm_provider,
+        llm_provider="gemini",
         db_session_factory=AsyncSessionLocal,
         attachments=attachments,
     )
@@ -89,14 +83,5 @@ async def _run_once(task_id: str) -> None:
         task_row.steps = orch_result.steps
         task_row.status = TaskStatus.done
         task_row.completed_at = datetime.now(tz=UTC)
-
-        usage = UsageLog(
-            user_id=task_row.user_id,
-            task_id=task_row.id,
-            tokens_input=max(int(orch_result.tokens_used * 0.6), 0),
-            tokens_output=max(int(orch_result.tokens_used * 0.4), 0),
-            cost_usd=_estimate_cost(orch_result.tokens_used),
-        )
-        session.add(usage)
 
         await session.commit()

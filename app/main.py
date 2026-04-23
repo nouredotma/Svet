@@ -9,13 +9,16 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
 
-from app.api.routes.auth import router as auth_router
-from app.api.routes.admin import router as admin_router
 from app.api.routes.tasks import router as tasks_router
-from app.api.routes.users import router as users_router
+from app.api.routes.memory import router as memory_router
 from app.api.routes.ws import router as ws_router
 from app.config import get_settings
+from app.db.session import AsyncSessionLocal
 from app.workers.broker import broker, shutdown_broker, startup_broker
+from app.db.models import User
+from sqlalchemy import select
+from app.security import hash_password
+import uuid
 
 
 async def _wait_for_postgres(max_attempts: int = 20, delay_seconds: float = 1.5) -> None:
@@ -63,6 +66,24 @@ async def lifespan(app: FastAPI):
     try:
         await _wait_for_postgres()
         await _run_startup_migrations()
+        # Personal-local mode: ensure a single local user exists for FK compatibility.
+        async with AsyncSessionLocal() as session:
+            local_id = uuid.UUID(int=0)
+            res = await session.execute(select(User).where(User.id == local_id))
+            existing = res.scalar_one_or_none()
+            if existing is None:
+                session.add(
+                    User(
+                        id=local_id,
+                        email="local@svet",
+                        hashed_password=hash_password("local"),
+                        full_name="Local User",
+                        is_active=True,
+                        is_admin=True,
+                        llm_provider="gemini",
+                    )
+                )
+                await session.commit()
         logger.info("Database migrations are up to date")
     except Exception as exc:
         logger.exception("Failed to apply startup migrations")
@@ -107,10 +128,8 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    app.include_router(auth_router)
-    app.include_router(users_router)
     app.include_router(tasks_router)
-    app.include_router(admin_router)
+    app.include_router(memory_router)
     app.include_router(ws_router, prefix="/ws")
 
     @app.get("/health")

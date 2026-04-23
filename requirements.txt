@@ -12,7 +12,6 @@ qdrant-client==1.12.1
 fastembed==0.4.1
 anthropic==0.42.0
 openai==1.59.7
-python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
 bcrypt==4.2.1
 httpx==0.28.1

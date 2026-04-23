@@ -1,5 +1,4 @@
 from datetime import UTC, datetime
-from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -7,35 +6,31 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agent.prompt_guard import validate_user_prompt
-from app.api.middleware.auth import get_current_user
-from app.api.middleware.rate_limit import rate_limit
-from app.db.models import Task, TaskStatus, User
+from app.db.models import Task, TaskStatus
 from app.db.session import get_db
 from app.schemas.tasks import TaskCreate, TaskListResponse, TaskLog, TaskResponse
 from app.workers.agent_task import run_agent_task
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
-RateLimited = Annotated[None, Depends(rate_limit)]
+_LOCAL_USER_UUID = UUID(int=0)
 
 
 @router.post("/", response_model=TaskResponse, status_code=status.HTTP_201_CREATED)
 async def create_task(
     payload: TaskCreate,
-    _: RateLimited,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
 ) -> Task:
     is_safe, guard_reason = validate_user_prompt(payload.prompt)
     if not is_safe:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=guard_reason)
 
-    llm_provider = payload.llm_provider or user.llm_provider
     task = Task(
-        user_id=user.id,
+        # Personal-local mode: we keep user_id in DB for compatibility, but it is not used for auth.
+        user_id=_LOCAL_USER_UUID,
         prompt=payload.prompt,
         attachments=payload.attachments,
         status=TaskStatus.pending,
-        llm_provider=llm_provider,
+        llm_provider="gemini",
         steps=[],
     )
     db.add(task)
@@ -48,22 +43,17 @@ async def create_task(
 
 @router.get("/", response_model=TaskListResponse)
 async def list_tasks(
-    _: RateLimited,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=200),
     status_filter: TaskStatus | None = Query(None, alias="status"),
 ) -> TaskListResponse:
-    stmt = select(Task).where(Task.user_id == user.id)
-    count_stmt = select(func.count()).select_from(Task).where(Task.user_id == user.id)
+    stmt = select(Task)
+    count_stmt = select(func.count()).select_from(Task)
 
     if status_filter is not None:
         stmt = stmt.where(Task.status == status_filter)
-        count_stmt = select(func.count()).select_from(Task).where(
-            Task.user_id == user.id,
-            Task.status == status_filter,
-        )
+        count_stmt = select(func.count()).select_from(Task).where(Task.status == status_filter)
 
     total_result = await db.execute(count_stmt)
     total = int(total_result.scalar_one())
@@ -83,11 +73,9 @@ async def list_tasks(
 @router.get("/{task_id}", response_model=TaskResponse)
 async def get_task(
     task_id: UUID,
-    _: RateLimited,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
 ) -> Task:
-    result = await db.execute(select(Task).where(Task.id == task_id, Task.user_id == user.id))
+    result = await db.execute(select(Task).where(Task.id == task_id))
     task = result.scalar_one_or_none()
     if task is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
@@ -97,11 +85,9 @@ async def get_task(
 @router.delete("/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def cancel_task(
     task_id: UUID,
-    _: RateLimited,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
 ) -> None:
-    result = await db.execute(select(Task).where(Task.id == task_id, Task.user_id == user.id))
+    result = await db.execute(select(Task).where(Task.id == task_id))
     task = result.scalar_one_or_none()
     if task is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
@@ -115,11 +101,9 @@ async def cancel_task(
 @router.get("/{task_id}/logs", response_model=list[TaskLog])
 async def task_logs(
     task_id: UUID,
-    _: RateLimited,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
 ) -> list[TaskLog]:
-    result = await db.execute(select(Task).where(Task.id == task_id, Task.user_id == user.id))
+    result = await db.execute(select(Task).where(Task.id == task_id))
     task = result.scalar_one_or_none()
     if task is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")

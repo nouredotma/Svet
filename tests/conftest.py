@@ -20,10 +20,7 @@ os.environ.setdefault("LLM_MODEL", "gemini-2.5-flash")
 os.environ.setdefault("LLM_BASE_URL", "https://generativelanguage.googleapis.com/v1beta/openai/")
 os.environ.setdefault("ENVIRONMENT", "dev")
 
-from app.api.middleware.auth import create_access_token, hash_password  # noqa: E402
-from app.config import get_settings  # noqa: E402
 import app.db.models  # noqa: E402,F401
-from app.db.models import User  # noqa: E402
 from app.db.session import Base, get_db  # noqa: E402
 from app.dependencies import get_redis  # noqa: E402
 from app.main import app  # noqa: E402
@@ -96,29 +93,6 @@ async def async_client():
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         yield client
-
-
-@pytest.fixture
-async def test_user(db_session: AsyncSession) -> User:
-    user = User(
-        email=f"user-{uuid.uuid4().hex}@example.com",
-        hashed_password=hash_password("password123"),
-        full_name="Test User",
-        is_active=True,
-        is_admin=False,
-        llm_provider="openai",
-    )
-    db_session.add(user)
-    await db_session.commit()
-    await db_session.refresh(user)
-    return user
-
-
-@pytest.fixture
-async def auth_headers(test_user: User) -> dict[str, str]:
-    settings = get_settings()
-    token = create_access_token(subject=str(test_user.id), settings=settings)
-    return {"Authorization": f"Bearer {token}"}
 
 
 @pytest.fixture(autouse=True)

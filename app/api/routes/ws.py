@@ -1,11 +1,9 @@
 import asyncio
 import uuid
 
-from fastapi import APIRouter, HTTPException, WebSocket, WebSocketException, status
+from fastapi import APIRouter, WebSocket, status
 from sqlalchemy import select
 
-from app.api.middleware.auth import verify_token
-from app.config import get_settings
 from app.db.models import Task, TaskStatus
 from app.db.session import AsyncSessionLocal
 
@@ -13,16 +11,7 @@ router = APIRouter(tags=["websocket"])
 
 
 @router.websocket("/tasks/{task_id}")
-async def task_progress(websocket: WebSocket, task_id: str, token: str | None = None) -> None:
-    if not token:
-        raise WebSocketException(code=status.WS_1008_POLICY_VIOLATION, reason="token is required")
-
-    settings = get_settings()
-    try:
-        user_id_str = verify_token(token, settings, token_type="access")
-    except HTTPException as exc:
-        raise WebSocketException(code=status.WS_1008_POLICY_VIOLATION, reason="invalid token") from exc
-
+async def task_progress(websocket: WebSocket, task_id: str) -> None:
     await websocket.accept()
 
     try:
@@ -31,15 +20,13 @@ async def task_progress(websocket: WebSocket, task_id: str, token: str | None = 
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
 
-    user_uuid = uuid.UUID(user_id_str)
-
     try:
         while True:
             async with AsyncSessionLocal() as session:
                 result = await session.execute(select(Task).where(Task.id == tid))
                 task = result.scalar_one_or_none()
 
-            if task is None or task.user_id != user_uuid:
+            if task is None:
                 await websocket.send_json({"error": "not_found"})
                 await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
                 return
