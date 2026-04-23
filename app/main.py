@@ -1,5 +1,10 @@
+import asyncio
 from contextlib import asynccontextmanager
+from pathlib import Path
 
+import asyncpg
+from alembic import command
+from alembic.config import Config
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
@@ -13,9 +18,55 @@ from app.config import get_settings
 from app.workers.broker import broker, shutdown_broker, startup_broker
 
 
+async def _wait_for_postgres(max_attempts: int = 20, delay_seconds: float = 1.5) -> None:
+    settings = get_settings()
+    last_exc: Exception | None = None
+    for attempt in range(1, max_attempts + 1):
+        try:
+            conn = await asyncpg.connect(settings.database_url)
+            try:
+                await conn.execute("SELECT 1")
+            finally:
+                await conn.close()
+            logger.info("PostgreSQL is ready (attempt {}/{})", attempt, max_attempts)
+            return
+        except Exception as exc:  # noqa: BLE001
+            last_exc = exc
+            logger.warning(
+                "PostgreSQL not ready yet (attempt {}/{}): {}",
+                attempt,
+                max_attempts,
+                exc,
+            )
+            if attempt < max_attempts:
+                await asyncio.sleep(delay_seconds)
+    raise RuntimeError(f"PostgreSQL did not become ready after {max_attempts} attempts") from last_exc
+
+
+async def _run_startup_migrations() -> None:
+    settings = get_settings()
+    project_root = Path(__file__).resolve().parents[1]
+    alembic_ini = project_root / "alembic.ini"
+    if not alembic_ini.exists():
+        raise RuntimeError(f"Alembic config not found at {alembic_ini}")
+
+    def _upgrade() -> None:
+        cfg = Config(str(alembic_ini))
+        cfg.set_main_option("sqlalchemy.url", settings.database_url)
+        command.upgrade(cfg, "head")
+
+    await asyncio.to_thread(_upgrade)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    settings = get_settings()
+    try:
+        await _wait_for_postgres()
+        await _run_startup_migrations()
+        logger.info("Database migrations are up to date")
+    except Exception as exc:
+        logger.exception("Failed to apply startup migrations")
+        raise RuntimeError("Startup migration failed") from exc
 
     try:
         await startup_broker()

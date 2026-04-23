@@ -18,6 +18,7 @@ RUN pip install --upgrade pip \
 RUN python -c "from fastembed import TextEmbedding; TextEmbedding(model_name='BAAI/bge-small-en-v1.5')"
 
 COPY app /app/app
+COPY alembic.ini /app/alembic.ini
 
 RUN python -m playwright install chromium \
     && python -m playwright install-deps chromium
