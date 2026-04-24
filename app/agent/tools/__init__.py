@@ -221,11 +221,26 @@ def get_tools_schema() -> list[dict[str, Any]]:
         },
         {
             "name": "screen_vision_tool",
-            "description": "Analyze the current screen image with the configured vision-capable LLM.",
+            "description": "Analyze the screen with smart capture modes (active window/cursor region/full screen).",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "question": {"type": "string"},
+                    "capture_mode": {
+                        "type": "string",
+                        "enum": ["active_window", "cursor_region", "full_screen"],
+                        "default": "active_window",
+                    },
+                    "region_size": {
+                        "type": "integer",
+                        "default": 700,
+                        "description": "Used for cursor_region capture square size in pixels.",
+                    },
+                    "include_history": {
+                        "type": "boolean",
+                        "default": True,
+                        "description": "Include lightweight recent vision context for better follow-up answers.",
+                    },
                 },
                 "required": ["question"],
             },
