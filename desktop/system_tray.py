@@ -17,7 +17,6 @@ class DexterTrayIcon(QSystemTrayIcon):
         self.api = api
         self.dashboard = None
         self.voice_controller = None
-        self._wake_enabled = False
         self.setIcon(self._build_icon())
         self.setToolTip("Dexter")
         self._backend_label = None
@@ -41,12 +40,6 @@ class DexterTrayIcon(QSystemTrayIcon):
         open_action.triggered.connect(self._open_dashboard)
         menu.addSeparator()
 
-        self.wake_action = menu.addAction("Wake Word OFF")
-        self.wake_action.triggered.connect(self._toggle_wake)
-        listen_action = menu.addAction("Listen Now")
-        listen_action.triggered.connect(lambda: asyncio.create_task(self._listen_now()))
-
-        menu.addSeparator()
         self._backend_label = menu.addAction("Backend Status: Unknown")
         self._backend_label.setEnabled(False)
 
@@ -74,28 +67,11 @@ class DexterTrayIcon(QSystemTrayIcon):
         preview = (text or "Task complete")[:120]
         self.showMessage("Dexter", preview, QSystemTrayIcon.MessageIcon.Information)
 
-    async def _listen_now(self) -> None:
-        if not self.voice_controller:
-            return
-        text = await self.voice_controller.start_listening()
-        await self.voice_controller.process_and_respond(text)
-
     def _open_dashboard(self) -> None:
         if self.dashboard:
             self.dashboard.show()
             self.dashboard.raise_()
             self.dashboard.activateWindow()
-
-    def _toggle_wake(self) -> None:
-        if not self.voice_controller:
-            return
-        self._wake_enabled = not self._wake_enabled
-        if self._wake_enabled:
-            self.voice_controller.enable_wake_word()
-            self.wake_action.setText("Wake Word ON")
-        else:
-            self.voice_controller.disable_wake_word()
-            self.wake_action.setText("Wake Word OFF")
 
     def _quit_app(self) -> None:
         from PyQt6.QtWidgets import QApplication

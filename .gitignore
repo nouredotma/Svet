@@ -24,3 +24,20 @@ ENV/
 
 # SQLite / local DB files
 *.db
+# Runtime data and memory (agent memory, vector DB, etc)
+data/
+*.log
+
+# OS-specific
+Thumbs.db
+.DS_Store
+
+# Temporary files
+*.tmp
+*.swp
+*.swo
+*~
+
+# IDE
+*.sublime-workspace
+*.sublime-project

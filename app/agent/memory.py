@@ -25,10 +25,14 @@ class AgentMemory:
     def _get_client(cls) -> QdrantClient:
         if cls._client is None:
             settings = get_settings()
-            qdrant_path = Path(settings.qdrant_path).resolve()
-            qdrant_path.mkdir(parents=True, exist_ok=True)
-            cls._client = QdrantClient(path=str(qdrant_path))
-            logger.info("Qdrant embedded mode initialized at {}", qdrant_path)
+            if settings.qdrant_path == ":memory:":
+                cls._client = QdrantClient(":memory:")
+                logger.info("Qdrant in-memory mode initialized")
+            else:
+                qdrant_path = Path(settings.qdrant_path).resolve()
+                qdrant_path.mkdir(parents=True, exist_ok=True)
+                cls._client = QdrantClient(path=str(qdrant_path))
+                logger.info("Qdrant embedded mode initialized at {}", qdrant_path)
         return cls._client
 
     @classmethod

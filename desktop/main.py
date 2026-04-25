@@ -26,6 +26,7 @@ async def _init_app(app: QApplication) -> tuple[DexterAPIClient, DexterTrayIcon]
     dashboard.closeEvent = lambda event: (event.ignore(), dashboard.hide())
 
     controller = VoiceController(config, overlay, api)
+    controller.enable_wake_word()
     tray = DexterTrayIcon(api)
     tray.bind(dashboard, controller)
     tray.show()

@@ -1,0 +1,2 @@
+C:\Users\Dexter\Desktop\WORK\Dexter\desktop\stt_engine.py:57: RuntimeWarning: overflow encountered in square
+  level = float(np.sqrt(np.mean(np.square(snippet)))) if len(snippet) else 0.0

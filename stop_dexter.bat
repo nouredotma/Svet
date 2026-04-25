@@ -1,11 +1,6 @@
 @echo off
 echo Stopping Dexter...
 
-:: Kill the desktop app (pythonw.exe running desktop.main)
-taskkill /f /fi "IMAGENAME eq pythonw.exe" /fi "WINDOWTITLE eq Dexter*" >nul 2>&1
-
-:: Kill the uvicorn backend
-taskkill /f /fi "IMAGENAME eq pythonw.exe" >nul 2>&1
-taskkill /f /fi "IMAGENAME eq python.exe" /fi "WINDOWTITLE eq Dexter Backend*" >nul 2>&1
+powershell -NoProfile -Command "Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -and ($_.CommandLine -match 'uvicorn app.main:app' -or $_.CommandLine -match 'desktop.main') } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }"
 
 echo Dexter stopped.

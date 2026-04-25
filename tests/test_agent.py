@@ -67,7 +67,7 @@ async def test_orchestrator_text_response(monkeypatch):
 
     async with Session() as s:
         t = Task(
-            user_id=uuid.uuid4(),
+            user_id=str(uuid.uuid4()),
             prompt="hi",
             status=TaskStatus.pending,
             llm_provider="openai",
@@ -143,7 +143,7 @@ async def test_orchestrator_tool_call(monkeypatch):
 
     async with Session() as s:
         t = Task(
-            user_id=uuid.uuid4(),
+            user_id=str(uuid.uuid4()),
             prompt="hi",
             status=TaskStatus.pending,
             llm_provider="openai",
@@ -172,21 +172,21 @@ async def test_memory_save_and_load(monkeypatch):
             self.upserts = 0
             self.searches = 0
 
-        async def get_collections(self):
+        def get_collections(self):
             return MagicMock(collections=[])
 
-        async def create_collection(self, **kwargs):
+        def create_collection(self, **kwargs):
             return None
 
-        async def upsert(self, **kwargs):
+        def upsert(self, **kwargs):
             self.upserts += 1
 
-        async def search(self, **kwargs):
+        def search(self, **kwargs):
             self.searches += 1
             return [MagicMock(payload={"prompt": "a", "result": "b", "user_id": "u1", "timestamp": "2020-01-01T00:00:00+00:00"})]
 
     fake = FakeClient()
-    monkeypatch.setattr("app.agent.memory.AsyncQdrantClient", lambda *a, **k: fake)
+    monkeypatch.setattr("app.agent.memory.QdrantClient", lambda *a, **k: fake)
 
     class FakeModel:
         def embed(self, texts):

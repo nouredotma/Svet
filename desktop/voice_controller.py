@@ -26,7 +26,7 @@ class VoiceController(QObject):
         self.stt = STTEngine(config)
         self.tts = TTSEngine(config)
         self.ws = TaskWebSocketClient(config.DEXTER_API_URL)
-        self.wake = WakeWordDetector(config.WAKE_WORD, self._wake_detected)
+        self.wake = WakeWordDetector(config.WAKE_WORD, self._wake_detected, self.stt, config.WAKE_WORD_SENSITIVITY)
 
     async def start_listening(self) -> str:
         self.overlay.set_state(OverlayState.LISTENING)
@@ -72,6 +72,7 @@ class VoiceController(QObject):
         if self.config.AUTO_SPEAK_RESPONSES and result_text:
             self.overlay.set_state(OverlayState.SPEAKING)
             await self.tts.speak(result_text)
+        self.overlay.clear_transcript()
         self.overlay.set_state(OverlayState.IDLE)
         await self.ws.disconnect()
 
