@@ -1,4 +1,5 @@
 from datetime import datetime
+from uuid import UUID
 
 from fastapi import APIRouter, status
 
@@ -7,7 +8,7 @@ from app.schemas.users import MemoryEntryResponse
 
 router = APIRouter(prefix="/memory", tags=["memory"])
 
-_LOCAL_USER_ID = "local"
+_LOCAL_USER_ID = str(UUID(int=0))
 
 
 @router.get("/", response_model=list[MemoryEntryResponse])

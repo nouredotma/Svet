@@ -9,7 +9,7 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgresql+asyncpg://svet:${POSTGRES_PASSWORD}@db:5432/svet
+      DATABASE_URL: postgresql+asyncpg://dexter:${POSTGRES_PASSWORD}@db:5432/dexter
       REDIS_URL: redis://redis:6379/0
       QDRANT_URL: http://qdrant:6333
     depends_on:
@@ -27,7 +27,7 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgresql+asyncpg://svet:${POSTGRES_PASSWORD}@db:5432/svet
+      DATABASE_URL: postgresql+asyncpg://dexter:${POSTGRES_PASSWORD}@db:5432/dexter
       REDIS_URL: redis://redis:6379/0
       QDRANT_URL: http://qdrant:6333
     depends_on:
@@ -40,8 +40,8 @@ services:
   db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_DB: svet
-      POSTGRES_USER: svet
+      POSTGRES_DB: dexter
+      POSTGRES_USER: dexter
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
     volumes:
       - postgres_data:/var/lib/postgresql/data

@@ -26,7 +26,8 @@ async def _wait_for_postgres(max_attempts: int = 20, delay_seconds: float = 1.5)
     last_exc: Exception | None = None
     for attempt in range(1, max_attempts + 1):
         try:
-            conn = await asyncpg.connect(settings.database_url)
+            dsn = settings.database_url.replace("+asyncpg", "", 1)
+            conn = await asyncpg.connect(dsn)
             try:
                 await conn.execute("SELECT 1")
             finally:

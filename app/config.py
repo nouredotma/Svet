@@ -24,9 +24,6 @@ class Settings(BaseSettings):
     )
 
     secret_key: str = Field(..., alias="SECRET_KEY")
-    algorithm: str = "HS256"
-    access_token_expire_minutes: int = Field(30, alias="ACCESS_TOKEN_EXPIRE_MINUTES")
-    refresh_token_expire_days: int = Field(7, alias="REFRESH_TOKEN_EXPIRE_DAYS")
 
     default_llm_provider: str = Field("gemini", alias="DEFAULT_LLM_PROVIDER")
 
@@ -49,7 +46,6 @@ class Settings(BaseSettings):
 
     max_prompt_chars: int = Field(12000, alias="MAX_PROMPT_CHARS")
     max_tool_input_chars: int = Field(6000, alias="MAX_TOOL_INPUT_CHARS")
-    rate_limit_per_minute: int = Field(60, alias="RATE_LIMIT_PER_MINUTE")
 
     cors_origins: str = Field("*", alias="CORS_ORIGINS")
     google_calendar_access_token: str | None = Field(None, alias="GOOGLE_CALENDAR_ACCESS_TOKEN")
