@@ -197,8 +197,7 @@ async def _persist_steps(
     steps: list[dict[str, Any]],
 ) -> None:
     async with db_session_factory() as session:
-        tid = uuid.UUID(task_id)
-        result = await session.execute(select(Task).where(Task.id == tid))
+        result = await session.execute(select(Task).where(Task.id == task_id))
         task = result.scalar_one_or_none()
         if task is None:
             return

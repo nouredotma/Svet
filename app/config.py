@@ -1,4 +1,5 @@
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -11,9 +12,10 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    database_url: str = Field(..., alias="DATABASE_URL")
-    redis_url: str = Field(..., alias="REDIS_URL")
-    qdrant_url: str = Field(..., alias="QDRANT_URL")
+    database_url: str = Field(
+        "sqlite+aiosqlite:///data/dexter.db", alias="DATABASE_URL"
+    )
+    qdrant_path: str = Field("data/qdrant", alias="QDRANT_PATH")
     qdrant_collection_name: str = Field("dexter_memory", alias="QDRANT_COLLECTION_NAME")
 
     llm_api_key: str | None = Field(None, alias="LLM_API_KEY")
@@ -32,7 +34,7 @@ class Settings(BaseSettings):
 
     serpapi_key: str | None = Field(None, alias="SERPAPI_KEY")
 
-    agent_files_root: str = Field("/tmp/dexter_agent_files", alias="AGENT_FILES_ROOT")
+    agent_files_root: str = Field("C:/Users/Dexter/dexter_agent_files", alias="AGENT_FILES_ROOT")
 
     smtp_host: str | None = Field(None, alias="SMTP_HOST")
     smtp_port: int = Field(587, alias="SMTP_PORT")

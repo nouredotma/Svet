@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-import uuid
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -9,8 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.pool import StaticPool
 
 os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
-os.environ.setdefault("REDIS_URL", "redis://localhost:6379/15")
-os.environ.setdefault("QDRANT_URL", "http://localhost:6333")
+os.environ.setdefault("QDRANT_PATH", ":memory:")
 os.environ.setdefault("SECRET_KEY", "unit-test-secret-unit-test-secret-unit-test-secret")
 os.environ.setdefault("DEFAULT_LLM_PROVIDER", "gemini")
 os.environ.setdefault("LLM_API_KEY", "test-llm")
@@ -42,7 +40,6 @@ async def db_session(engine):
     Session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
     async with Session() as session:
         yield session
-
 
 
 @pytest.fixture(autouse=True)

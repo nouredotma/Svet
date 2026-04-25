@@ -1,10 +1,7 @@
 from datetime import datetime
 from typing import Any
-from uuid import UUID
 
 from pydantic import BaseModel, Field
-
-from app.db.models import TaskStatus
 
 
 class TaskCreate(BaseModel):
@@ -17,11 +14,11 @@ class TaskCreate(BaseModel):
 
 
 class TaskResponse(BaseModel):
-    id: UUID
-    user_id: UUID
+    id: str
+    user_id: str
     prompt: str
     attachments: list[dict[str, Any]] | None = None
-    status: TaskStatus
+    status: str
     result: str | None
     error: str | None
     llm_provider: str

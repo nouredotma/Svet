@@ -32,22 +32,19 @@ async def run_agent_task(task_id: str) -> None:
 
 
 async def _mark_failed(session: AsyncSession, task_id: str, error: str) -> None:
-    tid = uuid.UUID(task_id)
-    result = await session.execute(select(Task).where(Task.id == tid))
+    result = await session.execute(select(Task).where(Task.id == task_id))
     task = result.scalar_one_or_none()
     if task is None:
         return
-    task.status = TaskStatus.failed
+    task.status = TaskStatus.failed.value
     task.error = error
     task.completed_at = datetime.now(tz=UTC)
     await session.commit()
 
 
 async def _run_once(task_id: str) -> None:
-    tid = uuid.UUID(task_id)
-
     async with AsyncSessionLocal() as session:
-        result = await session.execute(select(Task).where(Task.id == tid))
+        result = await session.execute(select(Task).where(Task.id == task_id))
         task = result.scalar_one_or_none()
         if task is None:
             raise RuntimeError(f"Task {task_id} not found")
@@ -61,7 +58,7 @@ async def _run_once(task_id: str) -> None:
         user_id = str(task.user_id)
         attachments = task.attachments
 
-        task.status = TaskStatus.running
+        task.status = TaskStatus.running.value
         task.started_at = datetime.now(tz=UTC)
         await session.commit()
 
@@ -75,13 +72,13 @@ async def _run_once(task_id: str) -> None:
     )
 
     async with AsyncSessionLocal() as session:
-        reload = await session.execute(select(Task).where(Task.id == tid))
+        reload = await session.execute(select(Task).where(Task.id == task_id))
         task_row = reload.scalar_one()
 
         task_row.result = orch_result.result
         task_row.tokens_used = orch_result.tokens_used
         task_row.steps = orch_result.steps
-        task_row.status = TaskStatus.done
+        task_row.status = TaskStatus.done.value
         task_row.completed_at = datetime.now(tz=UTC)
 
         await session.commit()

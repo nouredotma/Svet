@@ -2,9 +2,6 @@ import asyncio
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-import asyncpg
-from alembic import command
-from alembic.config import Config
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
@@ -13,87 +10,70 @@ from app.api.routes.tasks import router as tasks_router
 from app.api.routes.memory import router as memory_router
 from app.api.routes.ws import router as ws_router
 from app.config import get_settings
-from app.db.session import AsyncSessionLocal
+from app.db.session import AsyncSessionLocal, Base, engine
 from app.workers.broker import broker, shutdown_broker, startup_broker
-from app.db.models import User
-from sqlalchemy import select
+from app.db.models import User, Task
 from app.security import hash_password
-import uuid
+from uuid import UUID
 
 
-async def _wait_for_postgres(max_attempts: int = 20, delay_seconds: float = 1.5) -> None:
+async def _init_database() -> None:
+    """Create all tables if they don't exist (SQLite auto-creates the file)."""
     settings = get_settings()
-    last_exc: Exception | None = None
-    for attempt in range(1, max_attempts + 1):
-        try:
-            dsn = settings.database_url.replace("+asyncpg", "", 1)
-            conn = await asyncpg.connect(dsn)
-            try:
-                await conn.execute("SELECT 1")
-            finally:
-                await conn.close()
-            logger.info("PostgreSQL is ready (attempt {}/{})", attempt, max_attempts)
-            return
-        except Exception as exc:  # noqa: BLE001
-            last_exc = exc
-            logger.warning(
-                "PostgreSQL not ready yet (attempt {}/{}): {}",
-                attempt,
-                max_attempts,
-                exc,
+
+    # Ensure the data directory exists
+    db_url = settings.database_url
+    if "sqlite" in db_url:
+        # Extract the file path from the URL
+        # e.g. "sqlite+aiosqlite:///data/dexter.db" -> "data/dexter.db"
+        parts = db_url.split("///", 1)
+        if len(parts) == 2 and parts[1]:
+            db_path = Path(parts[1])
+            db_path.parent.mkdir(parents=True, exist_ok=True)
+
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+    logger.info("Database tables are ready")
+
+
+async def _ensure_local_user() -> None:
+    """Personal-local mode: ensure a single local user exists for FK compatibility."""
+    async with AsyncSessionLocal() as session:
+        from sqlalchemy import select
+
+        local_id = str(UUID(int=0))
+        res = await session.execute(select(User).where(User.id == local_id))
+        existing = res.scalar_one_or_none()
+        if existing is None:
+            session.add(
+                User(
+                    id=local_id,
+                    email="local@dexter",
+                    hashed_password=hash_password("local"),
+                    full_name="Dexter",
+                    is_active=True,
+                    is_admin=True,
+                    llm_provider="gemini",
+                )
             )
-            if attempt < max_attempts:
-                await asyncio.sleep(delay_seconds)
-    raise RuntimeError(f"PostgreSQL did not become ready after {max_attempts} attempts") from last_exc
-
-
-async def _run_startup_migrations() -> None:
-    settings = get_settings()
-    project_root = Path(__file__).resolve().parents[1]
-    alembic_ini = project_root / "alembic.ini"
-    if not alembic_ini.exists():
-        raise RuntimeError(f"Alembic config not found at {alembic_ini}")
-
-    def _upgrade() -> None:
-        cfg = Config(str(alembic_ini))
-        cfg.set_main_option("sqlalchemy.url", settings.database_url)
-        command.upgrade(cfg, "head")
-
-    await asyncio.to_thread(_upgrade)
+            await session.commit()
+            logger.info("Created local user")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     try:
-        await _wait_for_postgres()
-        await _run_startup_migrations()
-        # Personal-local mode: ensure a single local user exists for FK compatibility.
-        async with AsyncSessionLocal() as session:
-            local_id = uuid.UUID(int=0)
-            res = await session.execute(select(User).where(User.id == local_id))
-            existing = res.scalar_one_or_none()
-            if existing is None:
-                session.add(
-                    User(
-                        id=local_id,
-                        email="local@dexter",
-                        hashed_password=hash_password("local"),
-                        full_name="Dexter",
-                        is_active=True,
-                        is_admin=True,
-                        llm_provider="gemini",
-                    )
-                )
-                await session.commit()
-        logger.info("Database migrations are up to date")
+        await _init_database()
+        await _ensure_local_user()
     except Exception as exc:
-        logger.exception("Failed to apply startup migrations")
-        raise RuntimeError("Startup migration failed") from exc
+        logger.exception("Failed to initialize database")
+        raise RuntimeError("Database initialization failed") from exc
 
     try:
         await startup_broker()
     except Exception as exc:
-        logger.warning("Broker startup failed (worker may still run separately): {}", exc)
+        logger.warning("Broker startup failed: {}", exc)
 
     yield
 

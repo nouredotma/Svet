@@ -12,7 +12,7 @@ from app.schemas.tasks import TaskCreate, TaskListResponse, TaskLog, TaskRespons
 from app.workers.agent_task import run_agent_task
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
-_LOCAL_USER_UUID = UUID(int=0)
+_LOCAL_USER_UUID = str(UUID(int=0))
 
 
 @router.post("/", response_model=TaskResponse, status_code=status.HTTP_201_CREATED)
@@ -25,11 +25,10 @@ async def create_task(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=guard_reason)
 
     task = Task(
-        # Personal-local mode: we keep user_id in DB for compatibility, but it is not used for auth.
         user_id=_LOCAL_USER_UUID,
         prompt=payload.prompt,
         attachments=payload.attachments,
-        status=TaskStatus.pending,
+        status=TaskStatus.pending.value,
         llm_provider="gemini",
         steps=[],
     )
@@ -46,7 +45,7 @@ async def list_tasks(
     db: AsyncSession = Depends(get_db),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=200),
-    status_filter: TaskStatus | None = Query(None, alias="status"),
+    status_filter: str | None = Query(None, alias="status"),
 ) -> TaskListResponse:
     stmt = select(Task)
     count_stmt = select(func.count()).select_from(Task)
@@ -72,7 +71,7 @@ async def list_tasks(
 
 @router.get("/{task_id}", response_model=TaskResponse)
 async def get_task(
-    task_id: UUID,
+    task_id: str,
     db: AsyncSession = Depends(get_db),
 ) -> Task:
     result = await db.execute(select(Task).where(Task.id == task_id))
@@ -84,23 +83,23 @@ async def get_task(
 
 @router.delete("/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def cancel_task(
-    task_id: UUID,
+    task_id: str,
     db: AsyncSession = Depends(get_db),
 ) -> None:
     result = await db.execute(select(Task).where(Task.id == task_id))
     task = result.scalar_one_or_none()
     if task is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
-    if task.status != TaskStatus.pending:
+    if task.status != TaskStatus.pending.value:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only pending tasks can be cancelled")
-    task.status = TaskStatus.cancelled
+    task.status = TaskStatus.cancelled.value
     task.completed_at = datetime.now(tz=UTC)
     await db.commit()
 
 
 @router.get("/{task_id}/logs", response_model=list[TaskLog])
 async def task_logs(
-    task_id: UUID,
+    task_id: str,
     db: AsyncSession = Depends(get_db),
 ) -> list[TaskLog]:
     result = await db.execute(select(Task).where(Task.id == task_id))

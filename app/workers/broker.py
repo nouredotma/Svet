@@ -1,12 +1,6 @@
-from taskiq_redis import ListQueueBroker, RedisAsyncResultBackend
+from taskiq import InMemoryBroker
 
-from app.config import get_settings
-
-_settings = get_settings()
-
-result_backend = RedisAsyncResultBackend(redis_url=_settings.redis_url)
-
-broker = ListQueueBroker(url=_settings.redis_url).with_result_backend(result_backend)
+broker = InMemoryBroker()
 
 
 def _register_middlewares() -> None:
