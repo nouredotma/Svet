@@ -15,17 +15,16 @@ from app.workers.broker import broker
 @broker.task
 async def run_agent_task(task_id: str) -> None:
     last_error: str | None = None
-    for attempt in range(4):
+    for attempt in range(2):
         try:
             await _run_once(task_id)
             return
         except Exception as exc:
             last_error = str(exc)
             logger.exception("Agent task {} attempt {} failed", task_id, attempt + 1)
-            if attempt >= 3:
+            if attempt >= 1:
                 break
-            delay = (2**attempt) * 0.5
-            await asyncio.sleep(delay)
+            await asyncio.sleep(0.5)
 
     async with AsyncSessionLocal() as session:
         await _mark_failed(session, task_id, last_error or "Unknown failure")

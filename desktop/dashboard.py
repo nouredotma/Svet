@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 from pathlib import Path
 
 from PyQt6.QtCore import QTimer, Qt
+from PyQt6.QtGui import QColor, QFont
 from PyQt6.QtWidgets import (
     QCheckBox,
     QFormLayout,
@@ -27,6 +29,14 @@ from PyQt6.QtWidgets import (
 from desktop.api_client import DexterAPIClient
 from desktop.config import DexterConfig
 
+_STATUS_COLORS = {
+    "done": "#00cc66",
+    "running": "#FF4500",
+    "pending": "#FFD700",
+    "failed": "#cc3333",
+    "cancelled": "#888888",
+}
+
 
 class DexterDashboard(QMainWindow):
     def __init__(self, api: DexterAPIClient, config: DexterConfig) -> None:
@@ -34,8 +44,9 @@ class DexterDashboard(QMainWindow):
         self.api = api
         self.config = config
         self._current_task_id: str | None = None
+        self._pending_task_id: str | None = None
         self.setWindowTitle("Dexter Dashboard")
-        self.resize(1100, 700)
+        self.resize(1100, 750)
         self.setStyleSheet(
             "QMainWindow{background:#1a1a1a;color:white;} "
             "QWidget{color:white;} "
@@ -115,16 +126,51 @@ class DexterDashboard(QMainWindow):
         self.task_table.cellClicked.connect(lambda r, c: asyncio.create_task(self._on_task_clicked(r, c)))
         splitter.addWidget(self.task_table)
 
+        # ---- Details pane: 3 distinct sections ----
         details = QWidget()
         details_layout = QVBoxLayout(details)
+        details_layout.setSpacing(6)
+
+        # 1. Agent Response — the actual answer, most prominent
+        response_label = QLabel("💬 Agent Response")
+        response_label.setStyleSheet(
+            "font-size:14px; font-weight:bold; color:#FF4500; padding:4px 0;"
+        )
+        details_layout.addWidget(response_label)
+
+        self.task_response = QTextEdit()
+        self.task_response.setReadOnly(True)
+        self.task_response.setFont(QFont("Segoe UI", 12))
+        self.task_response.setStyleSheet(
+            "QTextEdit{background:#1a2e1a; border:1px solid #2a5a2a; border-radius:6px;"
+            " padding:10px; color:#e0ffe0; line-height:1.5;}"
+        )
+        self.task_response.setMinimumHeight(80)
+        self.task_response.setMaximumHeight(180)
+        self.task_response.setPlaceholderText("Click a task to see the agent's response...")
+        details_layout.addWidget(self.task_response)
+
+        # 2. Task Metadata — compact info bar
+        meta_label = QLabel("📋 Task Info")
+        meta_label.setStyleSheet("font-size:12px; font-weight:bold; color:#aaa; padding:4px 0;")
+        details_layout.addWidget(meta_label)
+
         self.task_details = QTextEdit()
         self.task_details.setReadOnly(True)
+        self.task_details.setFont(QFont("Consolas", 10))
+        self.task_details.setMaximumHeight(100)
+        details_layout.addWidget(self.task_details)
+
+        # 3. Step Logs — structured tool call history
+        logs_label = QLabel("🔧 Step Logs")
+        logs_label.setStyleSheet("font-size:12px; font-weight:bold; color:#aaa; padding:4px 0;")
+        details_layout.addWidget(logs_label)
+
         self.task_logs = QTextEdit()
         self.task_logs.setReadOnly(True)
-        details_layout.addWidget(QLabel("Task details"))
-        details_layout.addWidget(self.task_details)
-        details_layout.addWidget(QLabel("Step logs"))
+        self.task_logs.setFont(QFont("Consolas", 10))
         details_layout.addWidget(self.task_logs)
+
         splitter.addWidget(details)
         return page
 
@@ -138,7 +184,11 @@ class DexterDashboard(QMainWindow):
             result = await self.api.submit_task(prompt)
             if result and result.get("id"):
                 self.prompt_input.clear()
-                self.statusBar().showMessage(f"Task submitted: {str(result['id'])[:8]}...", 3000)
+                task_id = str(result["id"])
+                self.statusBar().showMessage(f"Task submitted: {task_id[:8]}...", 3000)
+                # Speed up polling while this task is running
+                self._pending_task_id = task_id
+                self._timer.start(1000)
                 await self.refresh_tasks()
             else:
                 self.statusBar().showMessage("Failed to submit task. Is the backend online?", 5000)
@@ -307,18 +357,34 @@ class DexterDashboard(QMainWindow):
         tasks = await self.api.get_tasks(limit=20)
         self.task_table.setRowCount(len(tasks))
         self._task_count.setText(f"Tasks: {len(tasks)}")
+
         for i, row in enumerate(tasks):
             prompt = str(row.get("prompt", ""))[:50]
             status = str(row.get("status", "unknown"))
             created = str(row.get("created_at", ""))
-            result = str(row.get("result", ""))[:70]
+            result = str(row.get("result", ""))[:100]
+
             self.task_table.setItem(i, 0, QTableWidgetItem(prompt))
-            item = QTableWidgetItem(status)
-            item.setForeground(Qt.GlobalColor.white)
-            self.task_table.setItem(i, 1, item)
+
+            # Color-coded status
+            status_item = QTableWidgetItem(status.upper())
+            color_hex = _STATUS_COLORS.get(status, "#ffffff")
+            status_item.setForeground(QColor(color_hex))
+            status_item.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
+            self.task_table.setItem(i, 1, status_item)
+
             self.task_table.setItem(i, 2, QTableWidgetItem(created))
             self.task_table.setItem(i, 3, QTableWidgetItem(result))
             self.task_table.item(i, 0).setData(Qt.ItemDataRole.UserRole, row.get("id"))
+
+        # Check if the pending task has completed → revert to slow polling
+        if self._pending_task_id:
+            for row in tasks:
+                if str(row.get("id")) == self._pending_task_id:
+                    if str(row.get("status", "")).lower() in {"done", "failed", "cancelled"}:
+                        self._pending_task_id = None
+                        self._timer.start(5000)
+                    break
 
     async def _on_task_clicked(self, row: int, _column: int) -> None:
         item = self.task_table.item(row, 0)
@@ -330,8 +396,58 @@ class DexterDashboard(QMainWindow):
         self._current_task_id = str(task_id)
         task = await self.api.get_task(self._current_task_id)
         logs = await self.api.get_task_logs(self._current_task_id)
-        self.task_details.setPlainText(str(task) if task else "No details")
-        self.task_logs.setPlainText("\n".join(str(x) for x in logs))
+
+        if task:
+            # --- Agent Response (clean, just the answer) ---
+            result = task.get("result", "")
+            self.task_response.setPlainText(result if result else "(no response yet)")
+
+            # --- Task Metadata (formatted) ---
+            status = task.get("status", "unknown")
+            meta_lines = [
+                f"Status:      {status}",
+                f"Prompt:      {task.get('prompt', '')}",
+                f"Created:     {task.get('created_at', '')}",
+                f"Completed:   {task.get('completed_at', '') or '(pending)'}",
+                f"Tokens used: {task.get('tokens_used', 0)}",
+            ]
+            if task.get("error"):
+                meta_lines.append(f"Error:       {task['error']}")
+            self.task_details.setPlainText("\n".join(meta_lines))
+        else:
+            self.task_response.setPlainText("No details available")
+            self.task_details.setPlainText("")
+
+        # --- Step Logs (structured, readable) ---
+        if logs:
+            log_lines = []
+            for entry in logs:
+                tool = entry.get("tool", "unknown")
+                step = entry.get("step", "?")
+                ts = str(entry.get("timestamp", ""))[:19]
+                inp = entry.get("input", {})
+                out = str(entry.get("output", ""))[:2000]
+
+                if tool == "final":
+                    log_lines.append(f"━━━ Step {step} — Final Response ━━━")
+                    log_lines.append(f"  {out}")
+                elif tool == "error":
+                    log_lines.append(f"━━━ Step {step} — ❌ Error ━━━")
+                    log_lines.append(f"  {out}")
+                else:
+                    log_lines.append(f"━━━ Step {step} — 🔧 {tool} ━━━")
+                    if inp:
+                        try:
+                            inp_str = json.dumps(inp, indent=2, ensure_ascii=False)
+                        except (TypeError, ValueError):
+                            inp_str = str(inp)
+                        log_lines.append(f"  Input:  {inp_str}")
+                    log_lines.append(f"  Output: {out}")
+                log_lines.append(f"  Time:   {ts}")
+                log_lines.append("")
+            self.task_logs.setPlainText("\n".join(log_lines))
+        else:
+            self.task_logs.setPlainText("No logs available")
 
     async def refresh_memory(self) -> None:
         rows = await self.api.get_memory(limit=50)

@@ -29,7 +29,7 @@ class DexterConfig:
     DEXTER_API_URL: str = os.getenv("DEXTER_API_URL", "http://localhost:8000")
     WAKE_WORD: str = os.getenv("WAKE_WORD", "hi dexter")
     WAKE_WORD_SENSITIVITY: float = _to_float(os.getenv("WAKE_WORD_SENSITIVITY"), 0.5)
-    WHISPER_MODEL: str = os.getenv("WHISPER_MODEL", "small")
+    WHISPER_MODEL: str = os.getenv("WHISPER_MODEL", "base")
     TTS_VOICE: str = os.getenv("TTS_VOICE", "en-US-ChristopherNeural")
     TTS_RATE: str = os.getenv("TTS_RATE", "+0%")
     GLOW_COLOR: str = os.getenv("GLOW_COLOR", "#FF4500")

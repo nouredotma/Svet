@@ -12,6 +12,7 @@ router = APIRouter(tags=["websocket"])
 @router.websocket("/tasks/{task_id}")
 async def task_progress(websocket: WebSocket, task_id: str) -> None:
     await websocket.accept()
+    last_step_count = 0
 
     try:
         while True:
@@ -25,20 +26,23 @@ async def task_progress(websocket: WebSocket, task_id: str) -> None:
                 return
 
             steps = task.steps or []
+            new_steps = steps[last_step_count:]
+
             payload = {
                 "status": task.status,
                 "result": task.result,
                 "error": task.error,
-                "steps": steps,
+                "steps": new_steps,
                 "step_count": len(steps),
             }
             await websocket.send_json(payload)
+            last_step_count = len(steps)
 
             terminal = {TaskStatus.done.value, TaskStatus.failed.value, TaskStatus.cancelled.value}
             if task.status in terminal:
                 await websocket.close()
                 return
 
-            await asyncio.sleep(1)
+            await asyncio.sleep(0.5)
     except Exception:
         await websocket.close()

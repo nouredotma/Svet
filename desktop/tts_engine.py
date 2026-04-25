@@ -1,16 +1,18 @@
 from __future__ import annotations
 
 import asyncio
+import io
+import logging
 import os
-import tempfile
 import threading
-from pathlib import Path
 
 import edge_tts
 import sounddevice as sd
 import soundfile as sf
 
 from desktop.config import DexterConfig
+
+log = logging.getLogger(__name__)
 
 
 class TTSEngine:
@@ -31,16 +33,27 @@ class TTSEngine:
         self._is_speaking = True
         self._stop_event.clear()
         try:
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as f:
-                temp_path = Path(f.name)
+            # Stream audio into an in-memory buffer instead of writing to disk
+            buf = io.BytesIO()
             communicate = edge_tts.Communicate(
                 text=text,
                 voice=self._config.TTS_VOICE,
                 rate=self._config.TTS_RATE,
             )
-            await communicate.save(str(temp_path))
-            await asyncio.to_thread(self._play_audio_file, temp_path)
+            async for chunk in communicate.stream():
+                if chunk["type"] == "audio":
+                    buf.write(chunk["data"])
+                if self._stop_event.is_set():
+                    return
+
+            if buf.tell() == 0:
+                log.warning("TTS produced no audio data")
+                return
+
+            buf.seek(0)
+            await asyncio.to_thread(self._play_audio_buffer, buf)
         except Exception:
+            log.exception("TTS failed, trying fallback")
             await asyncio.to_thread(self._fallback_tts, text)
         finally:
             self._is_speaking = False
@@ -55,16 +68,14 @@ class TTSEngine:
             self._play_thread.join(timeout=1.0)
         self._is_speaking = False
 
-    def _play_audio_file(self, path: Path) -> None:
+    def _play_audio_buffer(self, buf: io.BytesIO) -> None:
+        """Play audio from an in-memory buffer (no temp file needed)."""
         try:
-            data, samplerate = sf.read(str(path), dtype="float32")
+            data, samplerate = sf.read(buf, dtype="float32")
             sd.play(data, samplerate)
             sd.wait()
-        finally:
-            try:
-                os.unlink(path)
-            except OSError:
-                pass
+        except Exception:
+            log.exception("Audio playback failed")
 
     def _fallback_tts(self, text: str) -> None:
         command = f'powershell -Command "Add-Type -AssemblyName System.Speech; ' \
