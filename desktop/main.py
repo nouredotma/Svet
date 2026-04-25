@@ -47,7 +47,8 @@ async def _init_app(app: QApplication) -> tuple[DexterAPIClient, DexterTrayIcon]
 def _apply_theme(app: QApplication) -> None:
     app.setStyleSheet(
         """
-        QWidget { background-color: #1a1a1a; color: white; }
+        QMainWindow, QMenu, QDialog { background-color: #1a1a1a; color: white; }
+        QMainWindow QWidget { background-color: #1a1a1a; color: white; }
         QPushButton { background-color: #2a2a2a; border: 1px solid #444; padding: 6px; }
         QPushButton:hover { border: 1px solid #FF4500; }
         QLineEdit, QTextEdit, QListWidget, QTableWidget { background-color: #232323; color: white; border: 1px solid #333; }

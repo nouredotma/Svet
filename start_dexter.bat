@@ -35,4 +35,4 @@ echo Dexter is ready! Check your system tray.
 echo   - Double-click the orange icon to open the Dashboard
 echo   - Right-click for quick actions (Listen Now, Wake Word, etc.)
 echo.
-start "" .venv\Scripts\pythonw.exe -m desktop.main
+start "Dexter Desktop" /min .venv\Scripts\python.exe -m desktop.main 2> desktop_error.log

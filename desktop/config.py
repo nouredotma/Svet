@@ -34,7 +34,7 @@ class DexterConfig:
     TTS_RATE: str = os.getenv("TTS_RATE", "+0%")
     GLOW_COLOR: str = os.getenv("GLOW_COLOR", "#FF4500")
     GLOW_OPACITY: int = _to_int(os.getenv("GLOW_OPACITY"), 180)
-    GLOW_WIDTH: int = _to_int(os.getenv("GLOW_WIDTH"), 8)
+    GLOW_WIDTH: int = _to_int(os.getenv("GLOW_WIDTH"), 40)
     TRANSCRIPT_DURATION: int = _to_int(os.getenv("TRANSCRIPT_DURATION"), 6)
     TRANSCRIPT_FONT_SIZE: int = _to_int(os.getenv("TRANSCRIPT_FONT_SIZE"), 14)
     POLL_INTERVAL_MS: int = _to_int(os.getenv("POLL_INTERVAL_MS"), 1000)

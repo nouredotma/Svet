@@ -3,7 +3,7 @@ from __future__ import annotations
 from enum import Enum
 
 from PyQt6.QtCore import QEasingCurve, QPropertyAnimation, QRect, Qt, QTimer, pyqtProperty
-from PyQt6.QtGui import QColor, QFont, QPainter, QPen
+from PyQt6.QtGui import QColor, QFont, QLinearGradient, QPainter
 from PyQt6.QtWidgets import QApplication, QLabel, QWidget
 
 from desktop.config import DexterConfig
@@ -17,6 +17,8 @@ class OverlayState(str, Enum):
 
 
 class GlowBorder(QWidget):
+    """Renders a soft, diffuse glow along each screen edge (no hard border)."""
+
     def __init__(self, config: DexterConfig, parent: QWidget) -> None:
         super().__init__(parent)
         self._config = config
@@ -53,13 +55,49 @@ class GlowBorder(QWidget):
     def paintEvent(self, _event) -> None:  # noqa: N802
         if self._opacity <= 0:
             return
+
+        w = self.width()
+        h = self.height()
+        glow_thickness = self._config.GLOW_WIDTH
+
+        base_color = QColor(self._config.GLOW_COLOR)
+        base_color.setAlpha(self._opacity)
+        transparent = QColor(self._config.GLOW_COLOR)
+        transparent.setAlpha(0)
+
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-        color = QColor(self._config.GLOW_COLOR)
-        color.setAlpha(self._opacity)
-        pen = QPen(color, self._config.GLOW_WIDTH)
-        painter.setPen(pen)
-        painter.drawRect(self.rect().adjusted(4, 4, -4, -4))
+        painter.setPen(Qt.PenStyle.NoPen)
+
+        # --- Top edge glow (gradient goes downward) ---
+        grad_top = QLinearGradient(0, 0, 0, glow_thickness)
+        grad_top.setColorAt(0.0, base_color)
+        grad_top.setColorAt(1.0, transparent)
+        painter.setBrush(grad_top)
+        painter.drawRect(0, 0, w, glow_thickness)
+
+        # --- Bottom edge glow (gradient goes upward) ---
+        grad_bottom = QLinearGradient(0, h, 0, h - glow_thickness)
+        grad_bottom.setColorAt(0.0, base_color)
+        grad_bottom.setColorAt(1.0, transparent)
+        painter.setBrush(grad_bottom)
+        painter.drawRect(0, h - glow_thickness, w, glow_thickness)
+
+        # --- Left edge glow (gradient goes rightward) ---
+        grad_left = QLinearGradient(0, 0, glow_thickness, 0)
+        grad_left.setColorAt(0.0, base_color)
+        grad_left.setColorAt(1.0, transparent)
+        painter.setBrush(grad_left)
+        painter.drawRect(0, 0, glow_thickness, h)
+
+        # --- Right edge glow (gradient goes leftward) ---
+        grad_right = QLinearGradient(w, 0, w - glow_thickness, 0)
+        grad_right.setColorAt(0.0, base_color)
+        grad_right.setColorAt(1.0, transparent)
+        painter.setBrush(grad_right)
+        painter.drawRect(w - glow_thickness, 0, glow_thickness, h)
+
+        painter.end()
 
 
 class DexterOverlay(QWidget):
