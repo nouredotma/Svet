@@ -18,7 +18,7 @@ class DexterTrayIcon(QSystemTrayIcon):
         self.dashboard = None
         self.voice_controller = None
         self.setIcon(self._build_icon())
-        self.setToolTip("Dexter")
+        self.setToolTip("Dexter — Press Ctrl+Alt+D to talk")
         self._backend_label = None
         self.setContextMenu(self._build_menu())
         self.activated.connect(self._on_activated)
@@ -38,6 +38,10 @@ class DexterTrayIcon(QSystemTrayIcon):
         menu = QMenu()
         open_action = menu.addAction("Open Dashboard")
         open_action.triggered.connect(self._open_dashboard)
+
+        listen_action = menu.addAction("🎤 Listen Now")
+        listen_action.triggered.connect(self._listen_now)
+
         menu.addSeparator()
 
         self._backend_label = menu.addAction("Backend Status: Unknown")
@@ -72,6 +76,11 @@ class DexterTrayIcon(QSystemTrayIcon):
             self.dashboard.show()
             self.dashboard.raise_()
             self.dashboard.activateWindow()
+
+    def _listen_now(self) -> None:
+        """One-click activation from system tray."""
+        if self.voice_controller:
+            self.voice_controller.on_hotkey()
 
     def _quit_app(self) -> None:
         from PyQt6.QtWidgets import QApplication

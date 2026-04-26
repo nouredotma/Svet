@@ -35,8 +35,25 @@ class DexterConfig:
     GLOW_COLOR: str = os.getenv("GLOW_COLOR", "#FF4500")
     GLOW_OPACITY: int = _to_int(os.getenv("GLOW_OPACITY"), 180)
     GLOW_WIDTH: int = _to_int(os.getenv("GLOW_WIDTH"), 40)
-    TRANSCRIPT_DURATION: int = _to_int(os.getenv("TRANSCRIPT_DURATION"), 6)
+    TRANSCRIPT_DURATION: int = _to_int(os.getenv("TRANSCRIPT_DURATION"), 10)
     TRANSCRIPT_FONT_SIZE: int = _to_int(os.getenv("TRANSCRIPT_FONT_SIZE"), 14)
     POLL_INTERVAL_MS: int = _to_int(os.getenv("POLL_INTERVAL_MS"), 1000)
     AUTO_SPEAK_RESPONSES: bool = _to_bool(os.getenv("AUTO_SPEAK_RESPONSES"), True)
 
+    # Hotkey activation (Ctrl+Alt+D — "D for Dexter", no conflicts with Office/browsers)
+    HOTKEY: str = os.getenv("HOTKEY", "<ctrl>+<alt>+d")
+    ENABLE_HOTKEY: bool = _to_bool(os.getenv("ENABLE_HOTKEY"), True)
+
+    # Conversation mode (stay listening for follow-ups after responding)
+    CONVERSATION_TIMEOUT: int = _to_int(os.getenv("CONVERSATION_TIMEOUT"), 8)
+    ENABLE_CONVERSATION_MODE: bool = _to_bool(os.getenv("ENABLE_CONVERSATION_MODE"), True)
+
+    # Earcon audio feedback
+    ENABLE_EARCONS: bool = _to_bool(os.getenv("ENABLE_EARCONS"), True)
+    EARCON_VOLUME: float = _to_float(os.getenv("EARCON_VOLUME"), 0.3)
+
+    # State-aware glow colors
+    GLOW_COLOR_LISTENING: str = os.getenv("GLOW_COLOR_LISTENING", "#2196F3")
+    GLOW_COLOR_THINKING: str = os.getenv("GLOW_COLOR_THINKING", "#FF9800")
+    GLOW_COLOR_SPEAKING: str = os.getenv("GLOW_COLOR_SPEAKING", "#4CAF50")
+    GLOW_COLOR_CONVERSATION: str = os.getenv("GLOW_COLOR_CONVERSATION", "#9C27B0")

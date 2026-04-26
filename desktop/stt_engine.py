@@ -47,13 +47,23 @@ class STTEngine:
         self,
         duration_seconds: int = 10,
         on_audio_level: Callable[[float], None] | None = None,
+        conversation_timeout: float | None = None,
     ) -> str:
+        """Record and transcribe speech.
+
+        Args:
+            duration_seconds: Maximum recording duration.
+            on_audio_level: Callback for audio level updates.
+            conversation_timeout: If set, wait up to this many seconds for
+                speech to begin. Return empty string if no speech detected.
+        """
         self._is_listening = True
         try:
             text = await asyncio.to_thread(
                 self._record_and_transcribe,
                 duration_seconds,
                 on_audio_level,
+                conversation_timeout,
             )
             return text
         except Exception as exc:  # noqa: BLE001
@@ -66,6 +76,7 @@ class STTEngine:
         self,
         max_duration: int | float,
         on_audio_level: Callable[[float], None] | None,
+        conversation_timeout: float | None = None,
     ) -> str:
         samplerate = 16000
         chunk_samples = int(samplerate * _CHUNK_DURATION)
@@ -75,6 +86,7 @@ class STTEngine:
 
         speech_started = False
         silence_elapsed = 0.0
+        wait_elapsed = 0.0
         recorded: list[np.ndarray] = []
         total_time = 0.0
 
@@ -82,20 +94,29 @@ class STTEngine:
             with sd.InputStream(samplerate=samplerate, channels=1, dtype="float32") as stream:
                 while total_time < max_duration:
                     chunk, _overflow = stream.read(chunk_samples)
-                    recorded.append(chunk.copy())
-
-                    # Use float64 intermediate to avoid overflow in square
                     energy = float(np.sqrt(np.mean(chunk.astype(np.float64) ** 2)))
                     if on_audio_level:
                         on_audio_level(energy)
 
                     total_time += _CHUNK_DURATION
 
-                    # Don't check VAD until minimum recording time
+                    # --- Conversation timeout: waiting for speech to begin ---
+                    if conversation_timeout and not speech_started:
+                        wait_elapsed += _CHUNK_DURATION
+                        if energy > _SILENCE_THRESHOLD:
+                            speech_started = True
+                            recorded.append(chunk.copy())
+                        elif wait_elapsed >= conversation_timeout:
+                            log.debug("Conversation timeout: no speech in %.1fs", wait_elapsed)
+                            return ""
+                        continue
+
+                    # --- Normal recording with VAD ---
+                    recorded.append(chunk.copy())
+
                     if total_time < _MIN_RECORD_TIME:
                         continue
 
-                    # Voice Activity Detection
                     if energy > _SILENCE_THRESHOLD:
                         speech_started = True
                         silence_elapsed = 0.0

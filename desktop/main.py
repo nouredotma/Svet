@@ -10,12 +10,13 @@ from qasync import QEventLoop
 from desktop.api_client import DexterAPIClient
 from desktop.config import DexterConfig
 from desktop.dashboard import DexterDashboard
+from desktop.hotkey_listener import HotkeyListener
 from desktop.overlay import DexterOverlay, OverlayState
 from desktop.system_tray import DexterTrayIcon
 from desktop.voice_controller import VoiceController
 
 
-async def _init_app(app: QApplication) -> tuple[DexterAPIClient, DexterTrayIcon]:
+async def _init_app(app: QApplication) -> tuple[DexterAPIClient, DexterTrayIcon, HotkeyListener | None]:
     config = DexterConfig()
     api = DexterAPIClient(config.DEXTER_API_URL)
     overlay = DexterOverlay(config)
@@ -27,6 +28,14 @@ async def _init_app(app: QApplication) -> tuple[DexterAPIClient, DexterTrayIcon]
 
     controller = VoiceController(config, overlay, api)
     controller.enable_wake_word()
+
+    # Global hotkey listener
+    hotkey: HotkeyListener | None = None
+    if config.ENABLE_HOTKEY:
+        hotkey = HotkeyListener(config.HOTKEY)
+        hotkey.activated.connect(controller.on_hotkey)
+        hotkey.start()
+
     tray = DexterTrayIcon(api)
     tray.bind(dashboard, controller)
     tray.show()
@@ -42,7 +51,7 @@ async def _init_app(app: QApplication) -> tuple[DexterAPIClient, DexterTrayIcon]
     dashboard.raise_()
     dashboard.activateWindow()
 
-    return api, tray
+    return api, tray, hotkey
 
 
 def _apply_theme(app: QApplication) -> None:
@@ -73,10 +82,12 @@ def main() -> None:
             pass
 
     with loop:
-        api, _tray = loop.run_until_complete(_init_app(app))
+        api, _tray, _hotkey = loop.run_until_complete(_init_app(app))
         try:
             loop.run_forever()
         finally:
+            if _hotkey:
+                _hotkey.stop()
             loop.run_until_complete(api.close())
 
 

@@ -14,6 +14,7 @@ class OverlayState(str, Enum):
     LISTENING = "listening"
     THINKING = "thinking"
     SPEAKING = "speaking"
+    CONVERSATION = "conversation"
 
 
 class GlowBorder(QWidget):
@@ -23,9 +24,18 @@ class GlowBorder(QWidget):
         super().__init__(parent)
         self._config = config
         self._opacity = 0
+        self._current_color: str = config.GLOW_COLOR
         self._anim = QPropertyAnimation(self, b"glowOpacity")
         self._anim.setEasingCurve(QEasingCurve.Type.InOutSine)
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+
+    def _color_for_state(self, state: OverlayState) -> str:
+        return {
+            OverlayState.LISTENING: self._config.GLOW_COLOR_LISTENING,
+            OverlayState.THINKING: self._config.GLOW_COLOR_THINKING,
+            OverlayState.SPEAKING: self._config.GLOW_COLOR_SPEAKING,
+            OverlayState.CONVERSATION: self._config.GLOW_COLOR_CONVERSATION,
+        }.get(state, self._config.GLOW_COLOR)
 
     def get_opacity(self) -> int:
         return self._opacity
@@ -38,6 +48,8 @@ class GlowBorder(QWidget):
 
     def set_state(self, state: OverlayState) -> None:
         self._anim.stop()
+        self._current_color = self._color_for_state(state)
+
         if state == OverlayState.IDLE:
             self._opacity = 0
             self.update()
@@ -46,6 +58,16 @@ class GlowBorder(QWidget):
             self._opacity = self._config.GLOW_OPACITY
             self.update()
             return
+        if state == OverlayState.CONVERSATION:
+            # Very slow, subtle pulse for "still listening" feel
+            self._anim.setStartValue(30)
+            self._anim.setEndValue(int(self._config.GLOW_OPACITY * 0.5))
+            self._anim.setDuration(2000)
+            self._anim.setLoopCount(-1)
+            self._anim.start()
+            return
+
+        # LISTENING / THINKING
         self._anim.setStartValue(40 if state == OverlayState.LISTENING else 70)
         self._anim.setEndValue(self._config.GLOW_OPACITY)
         self._anim.setDuration(1200 if state == OverlayState.LISTENING else 500)
@@ -60,9 +82,9 @@ class GlowBorder(QWidget):
         h = self.height()
         glow_thickness = self._config.GLOW_WIDTH
 
-        base_color = QColor(self._config.GLOW_COLOR)
+        base_color = QColor(self._current_color)
         base_color.setAlpha(self._opacity)
-        transparent = QColor(self._config.GLOW_COLOR)
+        transparent = QColor(self._current_color)
         transparent.setAlpha(0)
 
         painter = QPainter(self)
